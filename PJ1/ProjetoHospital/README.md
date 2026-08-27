@@ -4,8 +4,8 @@ Trabalho da disciplina de Programação de Scripts — Java Moderno e Programaç
 
 ## Integrantes
 
+- Beatriz Mariana Antolini Carvalheiro
 - Caio Vitor de Souza Torres Morais
-- Beatriz Carvalheiro
 
 ## Sobre o projeto
 
