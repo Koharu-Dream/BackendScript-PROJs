@@ -15,11 +15,10 @@ public class DataInitializer implements CommandLineRunner {
 
     private final AutorRepository autorRepository;
     private final LivroRepository livroRepository;
-    
-    public DataInitializer(AutorRepository autorRepository, LivroRepository
-livroRepository) {
-    this.autorRepository = autorRepository;
-    this.livroRepository = livroRepository;
+
+    public DataInitializer(AutorRepository autorRepository, LivroRepository livroRepository) {
+        this.autorRepository = autorRepository;
+        this.livroRepository = livroRepository;
     }
 
     @Override
@@ -30,58 +29,45 @@ livroRepository) {
         System.out.println("==========================================");
         System.out.println(" SISTEMA DE GESTÃO DE BIBLIOTECA JPA ");
         System.out.println("==========================================");
+
         while (continuar) {
             System.out.println("\nMENU DE OPÇÕES:");
             System.out.println("1 - Cadastrar Autor");
             System.out.println("2 - Listar Autores");
             System.out.println("3 - Cadastrar Livro");
             System.out.println("4 - Listar Livros");
+            System.out.println("5 - Ver livros de um autor específico");
+            System.out.println("6 - Atualizar nome de um Autor");
+            System.out.println("7 - Remover Autor (e seus livros)");
             System.out.println("0 - Sair");
             System.out.print("Escolha uma opção: ");
-
             var opcao = scanner.nextLine();
 
             continuar = switch (opcao) {
-                case "1" -> {
-                    cadastrarAutor(scanner);
-                    yield true;
-                }
-                case "2" -> {
-                    listarAutores();
-                    yield true;
-                }
-                case "3" -> {
-                    cadastrarLivro(scanner);
-                    yield true;
-                }
-                case "4" -> {
-                listarLivros();
-                    yield true;
-                }
-                case "0" -> {
-                    System.out.println("Encerrando aplicação...");
-                    yield false;
-                }   
-                default -> {
-                    System.out.println("Opção inválida! Tente novamente.");
-                    yield true;
-                }
+                case "1" -> { cadastrarAutor(scanner); yield true; }
+                case "2" -> { listarAutores(); yield true; }
+                case "3" -> { cadastrarLivro(scanner); yield true; }
+                case "4" -> { listarLivros(); yield true; }
+                case "5" -> { verLivrosDeUmAutor(scanner); yield true; }
+                case "6" -> { atualizarAutor(scanner); yield true; }
+                case "7" -> { removerAutor(scanner); yield true; }
+                case "0" -> { System.out.println("Encerrando aplicação..."); yield false; }
+                default -> { System.out.println("Opção inválida! Tente novamente."); yield true; }
             };
         }
         System.out.println("Aplicação finalizada.");
     }
+
     private void cadastrarAutor(Scanner scanner) {
         System.out.print("Digite o nome do autor: ");
         var nome = scanner.nextLine();
-
         if (nome.isBlank()) {
             System.out.println("Nome inválido!");
             return;
         }
-
         var autor = new Autor(nome);
         autorRepository.save(autor);
-        System.out.println(">>> Autor '" + autor.getNome() + "' cadastrado com ID:" + autor.getId());
+        System.out.println(">>> Autor '" + autor.getNome() + "' cadastrado com ID: " + autor.getId());
     }
 
     private void listarAutores() {
@@ -90,7 +76,6 @@ livroRepository) {
             System.out.println("Nenhum autor cadastrado.");
             return;
         }
-
         System.out.println("\n--- LISTA DE AUTORES ---");
         autores.forEach(a -> System.out.printf("ID: %d | Nome: %s%n", a.getId(), a.getNome()));
         System.out.println("------------------------");
@@ -100,19 +85,15 @@ livroRepository) {
         listarAutores();
         System.out.print("Informe o ID do autor do livro: ");
         var idStr = scanner.nextLine();
-
         try {
             var autorId = Long.parseLong(idStr);
             Optional<Autor> autorOpt = autorRepository.findById(autorId);
-
             if (autorOpt.isEmpty()) {
                 System.out.println("Autor não encontrado com o ID informado!");
                 return;
             }
-
             System.out.print("Digite o título do livro: ");
             var titulo = scanner.nextLine();
-
             System.out.print("Digite o ano de publicação: ");
             var ano = Integer.parseInt(scanner.nextLine());
 
@@ -123,16 +104,86 @@ livroRepository) {
             System.out.println("Valor numérico inválido informado.");
         }
     }
+
     private void listarLivros() {
-    var livros = livroRepository.findAll();
-    if (livros.isEmpty()) {
-        System.out.println("Nenhum livro cadastrado.");
-        return;
+        var livros = livroRepository.findAll();
+        if (livros.isEmpty()) {
+            System.out.println("Nenhum livro cadastrado.");
+            return;
+        }
+        System.out.println("\n--- LISTA DE LIVROS ---");
+        livros.forEach(l -> System.out.printf("ID: %d | Título: %s | Ano: %d | Autor: %s%n",
+                l.getId(), l.getTitulo(), l.getAnoPublicacao(), l.getAutor().getNome()));
+        System.out.println("-----------------------");
     }
-    System.out.println("\n--- LISTA DE LIVROS ---");
-    livros.forEach(l -> System.out.printf("ID: %d | Título: %s | Ano: %d | Autor: %s%n",
-l.getId(), l.getTitulo(), l.getAnoPublicacao(),
-l.getAutor().getNome()));
-System.out.println("-----------------------");
+
+    // ===== Modificação 2: busca segura com JOIN FETCH =====
+    private void verLivrosDeUmAutor(Scanner scanner) {
+        listarAutores();
+        System.out.print("Informe o ID do autor para ver os livros: ");
+        var idStr = scanner.nextLine();
+        try {
+            var autorId = Long.parseLong(idStr);
+            Optional<Autor> autorOpt = autorRepository.buscarComLivros(autorId);
+            if (autorOpt.isEmpty()) {
+                System.out.println("Autor não encontrado com o ID informado!");
+                return;
+            }
+            var autor = autorOpt.get();
+            System.out.println("\n--- LIVROS DE " + autor.getNome().toUpperCase() + " ---");
+            if (autor.getLivros().isEmpty()) {
+                System.out.println("Esse autor ainda não tem livros cadastrados.");
+            } else {
+                autor.getLivros().forEach(l -> System.out.printf("ID: %d | Título: %s | Ano: %d%n",
+                        l.getId(), l.getTitulo(), l.getAnoPublicacao()));
+            }
+            System.out.println("----------------------------------");
+        } catch (NumberFormatException e) {
+            System.out.println("Valor numérico inválido informado.");
+        }
+    }
+
+    // ===== Modificação 3: CRUD completo (Update e Delete) =====
+    private void atualizarAutor(Scanner scanner) {
+        listarAutores();
+        System.out.print("Informe o ID do autor que deseja atualizar: ");
+        var idStr = scanner.nextLine();
+        try {
+            var autorId = Long.parseLong(idStr);
+            Optional<Autor> autorOpt = autorRepository.findById(autorId);
+            if (autorOpt.isEmpty()) {
+                System.out.println("Autor não encontrado com o ID informado!");
+                return;
+            }
+            var autor = autorOpt.get();
+            System.out.print("Novo nome para '" + autor.getNome() + "': ");
+            var novoNome = scanner.nextLine();
+            if (novoNome.isBlank()) {
+                System.out.println("Nome inválido! Atualização cancelada.");
+                return;
+            }
+            autor.setNome(novoNome);
+            autorRepository.save(autor);
+            System.out.println(">>> Autor atualizado para '" + autor.getNome() + "'.");
+        } catch (NumberFormatException e) {
+            System.out.println("Valor numérico inválido informado.");
+        }
+    }
+
+    private void removerAutor(Scanner scanner) {
+        listarAutores();
+        System.out.print("Informe o ID do autor que deseja remover: ");
+        var idStr = scanner.nextLine();
+        try {
+            var autorId = Long.parseLong(idStr);
+            if (!autorRepository.existsById(autorId)) {
+                System.out.println("Autor não encontrado com o ID informado!");
+                return;
+            }
+            autorRepository.deleteById(autorId);
+            System.out.println(">>> Autor removido com sucesso (junto com os livros vinculados a ele).");
+        } catch (NumberFormatException e) {
+            System.out.println("Valor numérico inválido informado.");
+        }
     }
 }
