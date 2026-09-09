@@ -1,24 +1,24 @@
 package com.lab.jpa.sisbiblioteca.config;
 
+import com.lab.jpa.sisbiblioteca.exception.AutorNaoEncontradoException;
+import com.lab.jpa.sisbiblioteca.exception.DadosInvalidosException;
 import com.lab.jpa.sisbiblioteca.model.Autor;
-import com.lab.jpa.sisbiblioteca.model.Livro;
-import com.lab.jpa.sisbiblioteca.repository.AutorRepository;
-import com.lab.jpa.sisbiblioteca.repository.LivroRepository;
+import com.lab.jpa.sisbiblioteca.service.AutorService;
+import com.lab.jpa.sisbiblioteca.service.LivroService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
 import java.util.Scanner;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
 
-    private final AutorRepository autorRepository;
-    private final LivroRepository livroRepository;
+    private final AutorService autorService;
+    private final LivroService livroService;
 
-    public DataInitializer(AutorRepository autorRepository, LivroRepository livroRepository) {
-        this.autorRepository = autorRepository;
-        this.livroRepository = livroRepository;
+    public DataInitializer(AutorService autorService, LivroService livroService) {
+        this.autorService = autorService;
+        this.livroService = livroService;
     }
 
     @Override
@@ -61,17 +61,16 @@ public class DataInitializer implements CommandLineRunner {
     private void cadastrarAutor(Scanner scanner) {
         System.out.print("Digite o nome do autor: ");
         var nome = scanner.nextLine();
-        if (nome.isBlank()) {
-            System.out.println("Nome inválido!");
-            return;
+        try {
+            var autor = autorService.cadastrar(nome);
+            System.out.println(">>> Autor '" + autor.getNome() + "' cadastrado com ID: " + autor.getId());
+        } catch (DadosInvalidosException e) {
+            System.out.println("Dados invalidos: " + e.getMessage());
         }
-        var autor = new Autor(nome);
-        autorRepository.save(autor);
-        System.out.println(">>> Autor '" + autor.getNome() + "' cadastrado com ID: " + autor.getId());
     }
 
     private void listarAutores() {
-        var autores = autorRepository.findAll();
+        var autores = autorService.listarTodos();
         if (autores.isEmpty()) {
             System.out.println("Nenhum autor cadastrado.");
             return;
@@ -87,26 +86,24 @@ public class DataInitializer implements CommandLineRunner {
         var idStr = scanner.nextLine();
         try {
             var autorId = Long.parseLong(idStr);
-            Optional<Autor> autorOpt = autorRepository.findById(autorId);
-            if (autorOpt.isEmpty()) {
-                System.out.println("Autor não encontrado com o ID informado!");
-                return;
-            }
+            Autor autor = autorService.buscarPorId(autorId);
+
             System.out.print("Digite o título do livro: ");
             var titulo = scanner.nextLine();
             System.out.print("Digite o ano de publicação: ");
             var ano = Integer.parseInt(scanner.nextLine());
 
-            var livro = new Livro(titulo, ano, autorOpt.get());
-            livroRepository.save(livro);
+            var livro = livroService.cadastrar(titulo, ano, autor);
             System.out.println(">>> Livro '" + livro.getTitulo() + "' cadastrado com sucesso!");
         } catch (NumberFormatException e) {
             System.out.println("Valor numérico inválido informado.");
+        } catch (AutorNaoEncontradoException | DadosInvalidosException e) {
+            System.out.println(e.getMessage());
         }
     }
 
     private void listarLivros() {
-        var livros = livroRepository.findAll();
+        var livros = livroService.listarTodos();
         if (livros.isEmpty()) {
             System.out.println("Nenhum livro cadastrado.");
             return;
@@ -117,19 +114,13 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println("-----------------------");
     }
 
-    // ===== Modificação 2: busca segura com JOIN FETCH =====
     private void verLivrosDeUmAutor(Scanner scanner) {
         listarAutores();
         System.out.print("Informe o ID do autor para ver os livros: ");
         var idStr = scanner.nextLine();
         try {
             var autorId = Long.parseLong(idStr);
-            Optional<Autor> autorOpt = autorRepository.buscarComLivros(autorId);
-            if (autorOpt.isEmpty()) {
-                System.out.println("Autor não encontrado com o ID informado!");
-                return;
-            }
-            var autor = autorOpt.get();
+            var autor = autorService.buscarComLivros(autorId);
             System.out.println("\n--- LIVROS DE " + autor.getNome().toUpperCase() + " ---");
             if (autor.getLivros().isEmpty()) {
                 System.out.println("Esse autor ainda não tem livros cadastrados.");
@@ -140,33 +131,25 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("----------------------------------");
         } catch (NumberFormatException e) {
             System.out.println("Valor numérico inválido informado.");
+        } catch (AutorNaoEncontradoException e) {
+            System.out.println(e.getMessage());
         }
     }
 
-    // ===== Modificação 3: CRUD completo (Update e Delete) =====
     private void atualizarAutor(Scanner scanner) {
         listarAutores();
         System.out.print("Informe o ID do autor que deseja atualizar: ");
         var idStr = scanner.nextLine();
         try {
             var autorId = Long.parseLong(idStr);
-            Optional<Autor> autorOpt = autorRepository.findById(autorId);
-            if (autorOpt.isEmpty()) {
-                System.out.println("Autor não encontrado com o ID informado!");
-                return;
-            }
-            var autor = autorOpt.get();
-            System.out.print("Novo nome para '" + autor.getNome() + "': ");
+            System.out.print("Novo nome: ");
             var novoNome = scanner.nextLine();
-            if (novoNome.isBlank()) {
-                System.out.println("Nome inválido! Atualização cancelada.");
-                return;
-            }
-            autor.setNome(novoNome);
-            autorRepository.save(autor);
+            var autor = autorService.atualizarNome(autorId, novoNome);
             System.out.println(">>> Autor atualizado para '" + autor.getNome() + "'.");
         } catch (NumberFormatException e) {
             System.out.println("Valor numérico inválido informado.");
+        } catch (AutorNaoEncontradoException | DadosInvalidosException e) {
+            System.out.println(e.getMessage());
         }
     }
 
@@ -176,14 +159,12 @@ public class DataInitializer implements CommandLineRunner {
         var idStr = scanner.nextLine();
         try {
             var autorId = Long.parseLong(idStr);
-            if (!autorRepository.existsById(autorId)) {
-                System.out.println("Autor não encontrado com o ID informado!");
-                return;
-            }
-            autorRepository.deleteById(autorId);
+            autorService.remover(autorId);
             System.out.println(">>> Autor removido com sucesso (junto com os livros vinculados a ele).");
         } catch (NumberFormatException e) {
             System.out.println("Valor numérico inválido informado.");
+        } catch (AutorNaoEncontradoException e) {
+            System.out.println(e.getMessage());
         }
     }
 }

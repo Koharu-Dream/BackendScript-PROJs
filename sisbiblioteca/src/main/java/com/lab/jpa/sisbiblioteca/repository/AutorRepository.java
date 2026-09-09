@@ -13,8 +13,7 @@ import java.util.Optional;
 public interface AutorRepository extends JpaRepository<Autor, Long> {
     List<Autor> findByNomeContainingIgnoreCase(String nome);
 
-    // Modificação 2: JOIN FETCH evita LazyInitializationException ao acessar
-    // autor.getLivros(), já que Autor.livros é FetchType.LAZY
+    // busca autor junto com os livros, evita erro de lazy loading
     @Query("SELECT a FROM Autor a LEFT JOIN FETCH a.livros WHERE a.id = :id")
     Optional<Autor> buscarComLivros(@Param("id") Long id);
 }

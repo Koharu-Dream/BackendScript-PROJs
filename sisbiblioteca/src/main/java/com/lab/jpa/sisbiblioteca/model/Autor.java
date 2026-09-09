@@ -1,6 +1,7 @@
 package com.lab.jpa.sisbiblioteca.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,14 +20,15 @@ public class Autor {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "nome do autor nao pode ser vazio")
     @Column(nullable = false, length = 100)
     private String nome;
 
     @OneToMany(mappedBy = "autor", cascade = CascadeType.ALL, fetch =
-FetchType.LAZY)
+            FetchType.LAZY)
     @ToString.Exclude
     private List<Livro> livros = new ArrayList<>();
     public Autor(String nome) {
-    this.nome = nome;
+        this.nome = nome;
     }
 }
